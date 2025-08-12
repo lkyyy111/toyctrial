@@ -6,7 +6,8 @@
 #include <sstream>
 #include <unordered_map>
 
-static std::unordered_map<std::string, int> func_param_counts;
+static std::unordered_map<std::string, int>
+    func_param_counts;
 
 static int current_func_param_count;
 static int max_calling_param_count;
