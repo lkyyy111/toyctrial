@@ -2,12 +2,12 @@
 #include "rv_defs.h"
 
 #include <cassert>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <unordered_map>
 
-static std::unordered_map<std::string, int>
-    func_param_counts;
+static std::unordered_map<std::string, int> func_param_counts;
 
 static int current_func_param_count;
 static int max_calling_param_count;
@@ -27,6 +27,11 @@ static std::unordered_map<std::string, Position> local_var_indices;
 Position get_local_var_index(std::string var_name)
 {
     // std::cout << "looking for local variable " << var_name << "\n";
+    if (strncmp(var_name.c_str(), "$imm_", 5) == 0)
+    {
+        int imm_value = std::stoi(var_name.substr(5));
+        return Position(2, imm_value); // use t0 to hold immediate values
+    }
     if (local_var_indices.find(var_name) == local_var_indices.end())
     {
         Position pos = Position(cur_local_var_index);
@@ -59,6 +64,8 @@ std::string visit_program(std::unique_ptr<Program> program)
 
 std::string visit_function(const std::unique_ptr<Function> &func)
 {
+    local_var_indices.clear();
+
     std::ostringstream oss;
 
     // entry of the function
@@ -96,7 +103,6 @@ std::string visit_function(const std::unique_ptr<Function> &func)
 
     // set the static values for visiting this function
     cur_local_var_index = extra_param_count_for_calling * 4;
-    local_var_indices.clear();
 
     // prologue
     if (stack_size < 2048 && stack_size >= -2048)
@@ -430,17 +436,8 @@ std::string visit_return_value(const ReturnValue *value)
     {
         // oss << "  lw a0, " << get_local_var_index(value->value->name) << "\n"; // return value in a0
         Position a0("a0");
-        // 如果返回值是立即数常量
-        if (auto int_val = dynamic_cast<IntergerValue *>(value->value.get()))
-        {
-            oss << "  li a0, " << int_val->value << "\n";
-        }
-        else
-        {
-            // 否则按照变量处理
-            Position return_value_index = get_local_var_index(value->value->name);
-            oss << move(return_value_index, a0) << "\n";
-        }
+        Position return_value_index = get_local_var_index(value->value->name);
+        oss << move(return_value_index, a0) << "\n"; // move return value to a0
     }
     // do epilogue
     if (stack_size < 2048 && stack_size >= -2048)
